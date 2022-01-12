@@ -10,6 +10,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.speech.RecognizerIntent;
 import android.view.View;
+import android.widget.Button;
 import android.widget.TextView;
 
 import java.util.ArrayList;
@@ -23,10 +24,11 @@ public class PlayActivity extends AppCompatActivity {
     TextView textView4;
     TextView textView5;
     TextView textView6;
+    TextView textView7;
+    TextView textView8;
     String odai;
-    String ans = "";
+    int rarry = 0;
     public HashMap<String, Integer> odaiList;
-    String spokenString;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -42,10 +44,19 @@ public class PlayActivity extends AppCompatActivity {
         textView3.setText("お題: " + odai);
 
         textView4 = (TextView)findViewById(R.id.textView4);
-        textView4.setText("回答");
+        textView4.setText("認識結果");
 
         textView5 = (TextView)findViewById(R.id.textView5);
         textView5.setText("判定");
+
+        textView6 = (TextView)findViewById(R.id.textView6);
+        textView6.setText("CPUの回答");
+
+        textView7 = (TextView)findViewById(R.id.textView7);
+        textView7.setVisibility(View.INVISIBLE);
+
+        textView8 = (TextView)findViewById(R.id.textView8);
+        textView8.setText("ラリー数: " + rarry);
 
         // テスト用のリストを作成
         HashMap<String, HashMap> odaiMap = new HashMap<>();
@@ -66,9 +77,11 @@ public class PlayActivity extends AppCompatActivity {
             //インテント作成
             Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
             intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, Boolean.parseBoolean(RecognizerIntent.LANGUAGE_MODEL_FREE_FORM));
+
             // 表示させる文字列
             intent.putExtra(RecognizerIntent.EXTRA_PROMPT, "音声を文字で出力します");
             intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 100);
+
             //インテント開始
             startActivityForResult(intent, 1234);
         } catch (ActivityNotFoundException e){
@@ -82,6 +95,8 @@ public class PlayActivity extends AppCompatActivity {
         super.onActivityResult(requestCode, resultCode, data);
 
         boolean correct_flag = false;
+        boolean match_flag = false;
+        Button recordbtn = (Button)PlayActivity.this.findViewById(R.id.recordbtn);
 
         // 自分が投げたインテントであれば応答する
         if (requestCode == 1234 && resultCode == RESULT_OK) {
@@ -90,66 +105,56 @@ public class PlayActivity extends AppCompatActivity {
             if (speechToChar.size() > 0) {
                 String spokenString = "";
 
-                // 認証結果が複数あった場合一つに結合する
-                for (int i = 0; i < speechToChar.size(); i++) {
-                    spokenString += speechToChar.get(i);
-                }
-
-                textView4.setText("結果: " + speechToChar);
-
+                // 認識結果の正誤判定
+                // 認識結果のリストに正解の単語が含まれていたらmatch_flagをtrueにする
+                // その単語が既に使われていなければcorrect_flagをtrueにする
                 for(String i : speechToChar){
+                    spokenString = i;
                     if(odaiList.containsKey(i)){
-                        correct_flag = true;
+                        match_flag = true;
+                        rarry += 1;
+                        textView8.setText("ラリー数: " + rarry);
 
                         if (odaiList.get(i) == 0){
+                            correct_flag = true;
                             textView5.setText("正解");
                             odaiList.put(i, 1);
                         }else{
                             textView5.setText("既に回答された単語です");
                         }
+                        break;
                     }
                 }
-                if(correct_flag == false){
+
+                // 認識結果のリストの中に正解の単語と一致するものがない場合
+                if(match_flag == false){
                     textView5.setText("不正解");
                 }
 
-                /*
-                // 入力された単語がお題のMapに入っているか
-                if(odaiList.containsKey(spokenString)){
-                    // 入力された単語が既に言われているか
-                    if(odaiList.get(spokenString) == 0){
-                        textView5.setText("正解");
-                        odaiList.put(spokenString, 1); // 既に言われている判定に設定
+                // 認識した単語を表示
+                textView4.setText("認識結果: " + spokenString);
 
-                        // CPUの回答を決定
-                        List<String> randOdai = new ArrayList<>(odaiList.keySet());
-                        Random random = new Random();
-                        String cpuAns = randOdai.get(random.nextInt(randOdai.size()));
-                        try {
-                            Thread.sleep(3000);
-                        } catch(InterruptedException e){
-                            e.printStackTrace();
+                // 認識結果のリストを表示
+                //textView4.setText("結果: " + speechToChar);
+
+                // 回答が正解だったらCPUの回答を決定し、不正解であれば回答ボタンを非表示にする
+                if(correct_flag == true) {
+                    textView6.setText("考え中・・・");
+                    // 3秒ディレイ
+                    new Handler().postDelayed(new Runnable() {
+                        @Override
+                        public void run() {
+                            decideCpuAns();
                         }
-
-                        textView6.setText("CPUの回答: "+ cpuAns);
-                        if (odaiList.get(cpuAns) == 0) {
-                            odaiList.put(cpuAns, 1);
-                        }else{
-                            textView5.setText("CPUの負けです");
-                        }
-
-                    }else{
-                        textView5.setText("既に回答済みです");
-                    }
+                    }, 5000);
                 }else{
-                    textView5.setText("不正解");
+                    textView6.setText("CPUの回答");
+                    // 回答ボタンの非表示
+                    recordbtn.setVisibility(View.INVISIBLE);
+                    textView7.setText("あなたの負けです");
+                    textView7.setVisibility(View.VISIBLE);
                 }
-
-                 */
-
             }
-
-
         }
     }
 
@@ -161,53 +166,26 @@ public class PlayActivity extends AppCompatActivity {
 
     }
 
-    /*
-    // 音声で入力された単語の正誤を判定
-    public void compareString(String spokenString){
-        boolean correct_flag = false;
-        // 入力された単語がお題のMapに入っているか
-        if(odaiList.containsKey(spokenString)){
-            // 入力された単語が既に言われているか
-            if(odaiList.get(spokenString) == 0){
-                textView5.setText("正解");
-                odaiList.put(spokenString, 1); // 既に言われている判定に設定
-                correct_flag = true;
-
-            }else{
-                textView5.setText("既に回答済みです");
-            }
-        }else{
-            textView5.setText("不正解");
-        }
-
-        if(correct_flag == true){
-            // コンピューターの回答へ移行
-            decideCpuAns();
-        }
-
-    }
-
-
     // コンピューターの回答を決定する
     public void decideCpuAns(){
         List<String> randOdai = new ArrayList<>(odaiList.keySet());
         Random random = new Random();
         String cpuAns = randOdai.get(random.nextInt(randOdai.size()));
-        try {
-            Thread.sleep(3000);
-        } catch(InterruptedException e){
-            e.printStackTrace();
-        }
+        Button recordbtn = (Button)PlayActivity.this.findViewById(R.id.recordbtn);
 
-        textView4.setText("CPUの回答: "+ cpuAns);
+        textView6.setText("CPUの回答: " + cpuAns);
+
+        // CPUの回答の正誤判定
         if (odaiList.get(cpuAns) == 0) {
             odaiList.put(cpuAns, 1);
+            rarry += 1;
+            textView8.setText("ラリー数: " + rarry);
         }else{
-            textView5.setText("CPUの負けです");
+            textView7.setText("CPUの負けです");
+            textView7.setVisibility(View.VISIBLE);
+            // 回答ボタンの非表示
+            recordbtn.setVisibility(View.INVISIBLE);
+
         }
-
     }
-
-     */
-
 }
